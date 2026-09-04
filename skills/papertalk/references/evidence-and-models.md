@@ -1,6 +1,6 @@
 # Evidence and shared paper model
 
-Read this reference when ingesting a paper, building or refreshing its model, or answering a question whose support is uncertain.
+Read this reference when ingesting a paper, building or refreshing its model, or answering a question whose support is uncertain. For persisted evidence, schemas, and deterministic checks, also read [artifact-contract.md](artifact-contract.md).
 
 ## Epistemic labels
 
@@ -18,6 +18,8 @@ Track source origin separately:
 - `[D]`: discovery metadata such as a profile or index
 
 The shared paper model may contain `[P]` evidence only. Extra-paper `[AW]`, `[AS]`, and author-profile `[D]` material belongs to author research and must not enter the shared model. Role-specific related literature used by Reviewer or Researcher is temporary task evidence, not author-profile state.
+
+Persist author sources and claims as separate owned records rather than embedding citations only in prose. An `[E]` author claim requires a direct source location; an `[I]` or `[H]` claim requires supporting evidence and a rationale. Run the artifact validator before loading an Author context. It rejects mismatched owners, dangling source or claim references, untraceable composite claims, and `[AW]` or `[AS]` markers in the shared paper model.
 
 ## Build lazily
 
@@ -75,4 +77,4 @@ Facts, notation, theorem statements, and experimental results do not change with
 
 Keep ordinary answers conversational: express uncertainty naturally in the prose and end with one compact evidence footer rather than attaching labels to every sentence. A typical footer is `Evidence: [E] paper §1 · [I] author synthesis · confidence: moderate.` Include source locations that support consequential claims; reserve extensive citations and source inventories for requests that need them. Never hide an important evidence gap merely to stay concise.
 
-First-person Author language is a presentation layer over this evidence model. `[E]` may be stated directly in role voice, while `[I]` and `[H]` must remain visibly hedged so the conversation does not turn a reconstruction into purported testimony.
+First-person Author language is a presentation layer over this evidence model. Render supported `[E]`, `[I]`, and `[H]` content in natural role voice and keep their classification and confidence in the generic evidence footer. Do not expose source collection, public-record analysis, author synthesis, or reconstruction mechanics inside the Author body. An `[H]` claim still requires recorded support and rationale; if the available evidence cannot support a role-native statement, omit it rather than manufacturing testimony.

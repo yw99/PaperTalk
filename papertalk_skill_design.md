@@ -138,6 +138,17 @@ $papertalk [perspective] [@paper] [task] <question>
 
 All parts except the question are optional.
 
+The fixed, state-free command reference is available through:
+
+```text
+$papertalk help
+```
+
+It returns `skills/papertalk/references/help-output.md` verbatim through
+`scripts/papertalk_help.py`. The memo lists every public registry command,
+perspective, Panel operation, and task modifier with one example and one-sentence
+explanation. It never resolves a paper or exposes internal artifact/session helpers.
+
 Examples:
 
 ```text
@@ -163,6 +174,12 @@ $papertalk implementer @opd trace How is rho actually computed?
 ```text
 $papertalk panel @opd Is Theorem 2 actually interesting?
 ```
+
+```text
+$papertalk panel_continue @opd reviewer:author Focus on the proof gap.
+```
+
+`panel_continue` is deliberately stricter than the convenience grammar: it requires an explicit paper alias and one distinct `responder:target` pair, and it always continues that paper's latest Panel. Historical Panels have no user-facing IDs and cannot be resumed.
 
 The syntax should be treated as a **convenience grammar, not a rigid parser**.
 
@@ -309,7 +326,7 @@ Instead:
 
 > Distill each author's relevant research mindset, combine those distillates into a contribution-aware Composite Author, and use that representative together with the shared paper model to reconstruct the strongest evidence-grounded account of the research reasoning that could have produced the paper.
 
-Deliver that reconstruction as a direct conversation. Use `I` for a single-author paper and `we` for a multi-author Composite Author. Explicit evidence may be stated directly in this voice; inferred or hypothetical intent must be hedged naturally with “My best reconstruction is...” for one author or “Our best reconstruction is...” for several. Default to one to three short, high-level paragraphs and expand only when the user asks for technical detail.
+Deliver that reconstruction as a direct conversation. Use `I` for a single-author paper and `we` for a multi-author Composite Author whenever the speaker refers to the author or collaboration. Technical subjects may appear naturally without a forced pronoun. Keep the public-record search, Composite Author construction, evidence classification, and reconstruction mechanics out of the role body. Express supported explicit, inferred, and hypothetical content in role-native language and carry `[E]`, `[I]`, `[H]`, and confidence in the generic evidence footer. Default to one to three short, high-level paragraphs and expand only when the user asks for technical detail.
 
 Focus on:
 
@@ -664,12 +681,24 @@ RESEARCHER
 The user should also be able to request a custom panel:
 
 ```text
-$papertalk panel author reviewer implementer @opd Is Eq. 7 necessary?
+$papertalk panel author reviewer @opd Is Eq. 7 necessary?
 ```
 
-Use exactly the requested perspectives when explicitly specified.
+Use exactly the requested subset or ordering of Author, Reviewer, and Researcher when explicitly specified. Other perspectives remain deferred.
 
-Keep each voice distinct in the assembled response: Author uses `I` or `we`, Reviewer uses `I`, and Researcher remains third-person. Normally give each member one short paragraph plus a shared compact evidence footer.
+Keep each voice distinct in the assembled response: Author uses `I` or `we`, Reviewer uses `I`, and Researcher remains third-person. Normally give each member one short paragraph with its own compact evidence footer.
+
+### 7.7.1 Targeted continuation
+
+The initial Panel freezes each role response before peer visibility. A later interaction uses:
+
+```text
+$papertalk panel_continue @opd reviewer:author <optional focus guidance>
+```
+
+This produces one Reviewer response to Author's newest turn in the latest Panel. The responder sees the original topic, the selected target turn, optional user guidance, and only the responder's normal role context. The target turn is an attributed conversational claim, not evidence; in particular, an Author turn does not grant Reviewer or Researcher access to author research.
+
+Each paper stores one latest Panel plus read-only history in its owned `conversation-state`. Starting another Panel archives the previous latest Panel. History is auditable but never selectable for continuation. Continuation output contains only the responder and its evidence footer, without moderator synthesis.
 
 ---
 
@@ -1007,6 +1036,11 @@ $papertalk use @opd
 $papertalk remove @opd
 ```
 
+```text
+$papertalk removed
+$papertalk restore <removal-id>
+```
+
 Suggested registry:
 
 ```yaml
@@ -1023,13 +1057,15 @@ papers:
     paper_id: sha256:<canonical-paper-fingerprint>
     namespace: papers/sapo
 
-  gate:
-    source: https://arxiv.org/abs/2510.10232
+  example-paper:
+    source: <public_link>
     paper_id: sha256:<canonical-paper-fingerprint>
-    namespace: papers/gate
+    namespace: papers/example-paper
 ```
 
 Aliases must be unique after normalization. `add` must reject an existing alias rather than silently replacing or merging it. Rebinding an alias to another paper requires an explicit replace operation. Build the replacement under its new `paper_id`, then atomically swap the registry entry and invalidate only the old alias-owned derived state; never expose a partially mixed namespace.
+
+Removal must be exact and recoverable. Resolve the explicit alias first and require its current `paper_id` as a mutation guard. Journal the original registry entry, move the complete namespace to PaperTalk-owned trash, remove only that registry entry, and clear the active pointer if necessary without selecting a replacement. Return a stable removal ID. Restoration must revalidate archived ownership, refuse alias or namespace collisions, preserve the current active pointer unless activation is explicitly requested, and retain the journal as an audit record. Permanent purge is a separate future operation.
 
 `paper_id` identifies the resolved source content independently of its user-facing alias. Every stored record and retrieval operation must carry both the alias namespace and `paper_id`; a mismatch is an error, not a reason to search another paper.
 
@@ -1463,9 +1499,19 @@ elif command == use:
 
 elif command == remove:
     resolve exact alias and paper_id
-    remove only that namespace and registry entry
+    require the resolved paper_id as a stale-alias guard
+    journal and move only that namespace to recoverable trash
+    remove only that registry entry
     if it was active, clear active paper
     do not mutate any other paper or auto-select a replacement
+    return the removal_id and recovery state
+
+elif command == restore:
+    resolve an exact removal_id from PaperTalk trash
+    revalidate archived owner and source identity
+    refuse to overwrite an existing alias or namespace
+    move the archived namespace back and restore its registry entry
+    preserve active paper unless explicit activation was requested
 
 elif command == compare:
     resolve all requested papers
@@ -1698,14 +1744,14 @@ Default Author answer for a multi-author paper:
 [Paper: OPD | Perspective: Composite Author]
 
 We were trying to ..., but the main obstacle was .... That is why we chose ....
-Our best reconstruction of the tradeoff is ...
+We saw the central tradeoff as ...
 
 Evidence: [E] paper §1 · [I] author synthesis · confidence: moderate
 ```
 
 For a single-author paper, use `I` instead of `we`. First-person language is an evidence-grounded role voice, not a claim that inferred reasoning is literal author testimony.
 
-Default to one to three short, colloquial paragraphs. Do not show the full goal-to-consequence outline, equations, derivations, implementation details, biographies, source inventories, or extensive citations unless requested. Use natural hedging in the prose and one compact evidence footer rather than forcing labels onto every sentence. Include author coverage only when it materially affects confidence.
+Default to one to three short, colloquial paragraphs. Do not show the full goal-to-consequence outline, equations, derivations, implementation details, biographies, source inventories, or extensive citations unless requested. Keep Author prose role-native and use one compact evidence footer rather than forcing labels or analyst commentary into the body. Include author coverage only when it materially affects confidence.
 
 Reviewer should speak as `I` and make an evidence-driven judgment. It may focus on an appreciated strength, a concern, or both, depending on what is relevant; do not force artificial balance.
 
@@ -1714,6 +1760,16 @@ Researcher may retain the current third-person analytical style. No other role m
 Panel answers should preserve these role voices and stay concise enough that perspectives remain comparable.
 
 When author research materially affects an answer, expose a compact provenance note or offer to show the supporting per-author evidence. Do not overwhelm ordinary answers with biographies or source inventories.
+
+## 25.1 Lightweight conversational pass
+
+After constructing an evidence-grounded response, make one silent language-editing pass. Match the user's current language, answer the question directly, and remove empty openings, repeated conclusions, canned invitations, serial rhetorical questions, slogan-like fragments, mechanical parallelism, and other phrasing that makes the role sound scripted.
+
+Softly reduce template contrasts such as `not X, but Y` and `not merely X; rather, Y`, including equivalent templates in the user's language. Prefer a direct positive statement when the rejected side contributes no information. Keep the contrast when it carries a real scientific distinction, corrects a factual misunderstanding, is necessary for accurate negation, appears in an unchanged quotation, or was explicitly requested by the user. This is a judgment rule, not a phrase blacklist or deterministic rewrite.
+
+The editing priority is evidence accuracy and role isolation, followed by the user's explicit language, format, and depth request, then role voice, then stylistic smoothness. The pass must not change facts, evidence levels, uncertainty, requested technical substance, equations, quotations, the scope marker, or the evidence footer. It must not imitate an author's private personality. For Panel, edit each frozen role response separately without importing another role's information. Apply the pass once; leave an already natural draft unchanged.
+
+Finish with a speaker-authenticity gate. Outside the scope marker, footer, and an explicitly requested `PaperTalk note`, every Author sentence should be something the author could plausibly say to a research colleague. Use `I` or `we` for self-reference, allow natural technical subjects, and keep public-record research, author synthesis, Composite Author construction, evidence scoring, and reconstruction mechanics outside the role body. Recast the viewpoint, move audit information to the footer, or delete the sentence; do not fix it by mechanically adding “we think.”
 
 ---
 
@@ -1734,13 +1790,13 @@ unless the paper says so.
 Good:
 
 ```text
-My best reconstruction is that we may have considered direct
-optimization first, because...
+A direct optimization route would have been the obvious alternative,
+but it would not preserve the property we needed.
 
-Evidence: [H] plausible reconstruction · confidence: low
+Evidence: [H] plausible alternative · confidence: low
 ```
 
-The first-person voice should improve conversational immersion without weakening the evidence boundary.
+The role body avoids claiming that an undocumented experiment occurred. The footer carries the epistemic status without turning PaperTalk's reconstruction process into Author dialogue.
 
 ---
 
@@ -1847,6 +1903,7 @@ Check that the answer:
 - distinguishes `r` from the deployed policy
 - explains motivation, not only definition
 - uses `I` for a single author or `we` for a multi-author Composite Author
+- sounds like the author speaking and does not expose PaperTalk's evidence or synthesis machinery
 - defaults to one to three short, high-level paragraphs with a compact evidence footer
 - does not invent historical intent
 
@@ -1929,7 +1986,7 @@ Ask:
 Why did the authors choose method X?
 ```
 
-The answer should separate:
+The answer's generic footer should distinguish the evidence present:
 
 ```text
 [E] none
@@ -2030,6 +2087,16 @@ Check that:
 
 ---
 
+## 27.13 Lightweight conversational-pass eval
+
+Use matched Chinese and English prompts across Author, Reviewer, Researcher, and Panel. Check that ordinary answers lead with the requested point, retain the correct role voice and evidence footer, and avoid unnecessary binary templates, empty openings, mechanical parallelism, repeated conclusions, and canned invitations. Author bodies must pass the research-colleague speaker test: self-reference uses `I` or `we`, natural technical subjects remain allowed, and PaperTalk's evidence-gathering and synthesis machinery stays outside the dialogue.
+
+Include an explicit technical request and verify that equations and requested detail survive the pass. Include a consequential scientific contrast and a factual negation and verify that both remain clear. Include `[I]` and `[H]` content and verify that the generic footer retains its classification and confidence. For Panel, verify that editing does not move Author-only information into Reviewer or Researcher. When provenance is explicitly requested, verify that a labeled `PaperTalk note` remains visibly outside the Author body.
+
+Do not score this eval by forbidden-word counts. A retained contrast passes when it has a clear semantic role; an answer fails when stylistic smoothing changes substance, evidence status, or context access.
+
+---
+
 # 28. README Positioning
 
 Do not position this as:
@@ -2086,7 +2153,7 @@ Implement:
 - Panel
 - evidence protocol
 - hard role-context isolation
-- `add`, `list`, `use`, and unique aliases
+- `add`, `list`, `use`, recoverable `remove`/`restore`, and unique aliases
 - per-alias `(alias, paper_id)` namespaces
 - multi-paper state and conversation isolation
 - active paper

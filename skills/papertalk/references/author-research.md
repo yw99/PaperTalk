@@ -1,6 +1,6 @@
 # Author research and Composite Author
 
-Read this reference only for Author perspective or the Author section of a Panel. Do not read or retrieve author-research state for Reviewer or Researcher.
+Read this reference only for Author perspective or the Author section of a Panel. Do not read or retrieve author-research state for Reviewer or Researcher. Before persisting or loading author evidence, also read [artifact-contract.md](artifact-contract.md).
 
 ## Purpose
 
@@ -19,37 +19,26 @@ Search relevant public scholarly and professional evidence in roughly this order
 
 Retain research-relevant signals: recurring questions and framings, methods, abstractions, evidence standards, tradeoffs, limitations, changes over time, and supported connections to target-paper decisions. Exclude private or sensitive details, personal trivia, demographic or personality inference, and prestige signals. Authorship order may inform the contribution prior below, but must not be presented as direct evidence that a particular person supplied an idea.
 
-For long author lists, make a breadth-first pass across every author before deepening any profile. Report coverage gaps; never silently omit an author because someone else has a larger public footprint.
+Choose and record a research tier:
 
-Store each distillate only under the resolved paper namespace and include:
+- **Quick:** target paper and official artifacts, verified authorship and contribution metadata, and the closest useful related work for each author.
+- **Standard:** breadth-first author coverage, several topically and temporally close works where available, public technical statements, counterevidence, alternative explanations, and a user-visible research-quality checkpoint.
+- **Deep:** broader scholarly trajectories, talks, project histories, rebuttals, code history, temporal change, external technical perspectives, and behavioral validation.
 
-```yaml
-owner: {alias: <alias>, paper_id: <paper_id>}
-author:
-identity_evidence: []
-authorship_metadata:
-  position:
-  author_count:
-  equal_contribution_group:
-  is_corresponding_author:
-  corresponding_author_evidence:
-  ordering_convention: contribution-ordered | alphabetical | mixed | unknown
-  ordering_convention_confidence:
-source_coverage: {searched: [], included: [], gaps: []}
-mindset_claims:
-  - claim:
-    dimension:
-    evidence_level: E | I | H
-    source_origin: P | AW | AS | D
-    source:
-    source_date:
-    relevance_to_target_paper:
-    counterevidence:
-target_paper_connections: []
-explicit_contribution_evidence: []
-```
+These are depth definitions, not source quotas. For long author lists, make a breadth-first pass across every author before deepening any profile. Stop when additional sources no longer materially change high-confidence claims. Record the tier, searched coverage, gaps, quality checkpoint, and stopping reason in the P0 artifacts; never silently omit an author because someone else has a larger public footprint.
 
-If a maintained distillation skill is available, it may be used, but normalize its result to this schema and retain PaperTalk's evidence and access rules. Otherwise distill natively. Do not require or copy an external skill in v0.1.
+## Claim filter
+
+Before a candidate mindset claim enters an individual distillate, test:
+
+1. **Recurrence:** does it appear across relevant works, decisions, or source types?
+2. **Target relevance:** does it explain a concrete choice, constraint, or tradeoff in this paper?
+3. **Predictive value:** can it reconstruct a withheld decision or distinguish plausible alternatives?
+4. **Specificity:** is it more informative than generic research competence or normal field practice?
+
+Classify the claim as `durable`, `decision-heuristic`, `paper-specific-explicit`, or `omit`. A target-paper statement may remain as paper-specific `[E]` evidence without recurrence. Keep omitted candidates in the claim ledger for auditability, but never link them into an individual distillate or Composite Author. Preserve supporting locations, counterevidence, alternative explanations, rationale, temporal scope, and confidence.
+
+Store sources, candidate claims, coverage, and each individual distillate under the resolved namespace using [artifact-contract.md](artifact-contract.md), then run the validator. If a maintained distillation skill is available, it may help collect candidates, but normalize the result to PaperTalk's contract and retain its evidence and access rules. Otherwise distill natively.
 
 ## Composite synthesis
 
@@ -75,25 +64,10 @@ Before applying order, classify the paper's ordering convention as contribution-
 
 Then weight the underlying evidence by target-paper relevance, source quality, recency, and consistency. Preserve disagreement instead of forcing consensus. An authorship position is `[E][P]`; a contribution inferred from that position is normally `[H]` unless corroborating evidence justifies `[I]`.
 
-For every major paper decision, record which prior was applied:
+For every major paper decision, record the decision type, candidate explanations, each author's direct contribution sources, overlapping role priors, relevant included claim IDs, supporting and contradicting weights, inferred influence, evidence level, ordering convention, ordering effect, and unresolved uncertainty. Use the exact machine-readable structure in [artifact-contract.md](artifact-contract.md).
 
-```yaml
-decision_influence:
-  decision:
-  decision_type: execution | direction | mixed
-  authors:
-    - author:
-      direct_contribution_evidence: []
-      authorship_role_prior: first | co-first | corresponding | field-specific-senior | neutral
-      relevant_mindset_evidence: []
-      inferred_influence:
-      evidence_level:
-  ordering_convention:
-  uncertainty:
-```
-
-Every composite claim must link to the supporting and contradicting individual distillates and disclose when ordering changed the synthesis. Rebuild it when a distillate or authorship-role interpretation materially changes. Begin the composite file with the same `(alias, paper_id)` owner and reject any mismatched input.
+Every composite claim must link to supporting individual claim IDs and any contradicting claim IDs. Rebuild it when a distillate or authorship-role interpretation materially changes. Run `paper_artifacts.py validate`, and obtain an allowed Author context with `paper_artifacts.py context author`; do not load a draft, untraceable, or owner-mismatched composite.
 
 ## Answering
 
-Combine the Composite Author with the shared paper model only after both owners match. Speak as `I` for a single author and `we` for a multi-author composite, while naturally hedging inferred or hypothetical intent. Reflect author-derived evidence in the compact evidence footer; include a coverage count only when incomplete or uneven coverage materially affects confidence. Attribute `[E][AW]` or `[E][AS]` claims to their actual source, do not imply they were stated in the target paper, and offer the per-author support instead of listing it in an ordinary concise answer.
+Combine the Composite Author with the shared paper model only after both owners match. In the role body, speak as `I` for a single author and `we` for a multi-author composite; never narrate the public research, distillation, or synthesis process as if the author were describing it. Phrase supported content in a way the author could plausibly say in conversation, and carry `[E]`, `[I]`, `[H]`, confidence, and any material coverage limit in the compact footer. Attribute `[E][AW]` or `[E][AS]` correctly in the evidence layer, do not imply that it appeared in the target paper, and offer the per-author support instead of listing it in an ordinary concise answer. Omit unsupported private project history.
