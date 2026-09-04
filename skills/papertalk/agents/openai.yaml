@@ -1,0 +1,4 @@
+interface:
+  display_name: "PaperTalk"
+  short_description: "Reconstruct the reasoning behind research papers"
+  default_prompt: "Use $papertalk to discuss this paper in a concise, conversational role voice."
